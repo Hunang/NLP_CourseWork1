@@ -12,8 +12,8 @@ from datetime import datetime
 from random import shuffle
 
 from sklearn.svm         import LinearSVC
+from sklearn.svm         import SVC
 from sklearn.metrics     import precision_recall_fscore_support
-from sklearn.naive_bayes import MultinomialNB, BernoulliNB
 
 import nltk
 from nltk.classify       import SklearnClassifier
@@ -21,6 +21,7 @@ from nltk.tokenize       import word_tokenize
 from nltk.stem           import WordNetLemmatizer
 from nltk.corpus         import stopwords
 from nltk.tokenize       import TweetTokenizer
+from nltk.stem import PorterStemmer
 
 timeStart = time.time() # Start timer
 #=============================================================================#
@@ -33,11 +34,11 @@ def loadData(path, label):
         for line in reader:
             (date,tweet) = parseTweet(line)
             if tweet:   #if tweet is an empty string python reads it as False 
-                tweet = re.sub("[^a-zA-Z0-9 #]","",tweet)
-                tweet = re.sub(r'^https?:\/\/.*[\r\n]*', '__URL__', tweet, flags=re.MULTILINE)
-            
+
                 tokenizedTweets     = preProcess(tweet)
+#                tokenizedTweets     = cleanTweets(tokenizedTweets)
                 tweetFeatureVector  = toFeatureVector(tokenizedTweets)
+                
                 tweetData.append((date,tokenizedTweets,label))      # (date, [word1, word2, word3], label)
                 trainData.append((tweetFeatureVector,label))        # ({Word1: count, Word2: count}, label)
              
@@ -50,15 +51,30 @@ def loadApplicationData(path):
             (date,tweet) = parseTweet(line)
             if tweet:   #if tweet is an empty string python reads it as False
                 if date.day == 9:
-                    countTweets("lol")
-                    tokenizedTweets = preProcess(tweet)
+                    countTweets("9")
+                    tokenizedTweets     = preProcess(tweet)
+                    tokenizedTweets     = cleanTweets(tokenizedTweets)
                     tweetFeatureVector = toFeatureVector(tokenizedTweets)
+                    
                     londonTweetData.append([tweetFeatureVector, date])
-
+                    
+def cleanTweets(tokenizedTweets):
+    tempList = []
+    for items in tokenizedTweets:
+        items = items.lower()
+        items = items.strip('?!.,/|\;:% ')
+        items = items.replace(" ", "")
+        items = re.sub(r'^https?:\/\/.*[\r\n]*', '__URL__', items, flags=re.MULTILINE)
+        items = re.sub("[^a-z#@][\s]","",items)
+        ps = PorterStemmer()
+        items = ps.stem(items)
+        if items:
+            tempList.append(items)
+    return tempList
+                    
 #=============================================================================#
 # TEXT PREPROCESSING AND FEATURE VECTORIZATION
 #=============================================================================#
-
 def preProcess(text): 
     tknzr = TweetTokenizer()
     tokens = tknzr.tokenize(text)
@@ -76,10 +92,9 @@ def countTweets(tweetType):
         septTweetCount.append(1)
 
 def timeElapsed():
-    print("   Done...")
-    timeEnd = time.time()
-    elapsed = timeEnd-timeStart
-    print("   Elapsed seconds:", int(elapsed))
+    timeNow         = time.time()
+    elapsedStart    = timeNow - timeStart
+    print("   >> Elapsed time: ", int(elapsedStart))
 
 #==============================================================================
 # Feature vector
@@ -88,10 +103,6 @@ def toFeatureVector(words):
     featureDict = {}
     for word in words:
         unimportant_words = [':', 'http', '.', ',', '?', '...', "'s", "n't", 'RT', ';', '&', ')', '``', 'u', '(', "''", '|',]
-        word = WordNetLemmatizer().lemmatize(word)
-
-# Uncommment for testing -- Faster, but less accurate
-        unimportant_words = []
 
         if word not in unimportant_words:
             if word[0:2] != '//':
@@ -111,7 +122,7 @@ def toFeatureVector(words):
 #==============================================================================
 def trainClassifier(trainData):
     classifier = SklearnClassifier(LinearSVC())
-
+#    classifier = SklearnClassifier(SVC())
     result = classifier.train(trainData)
     return result
 
@@ -129,7 +140,7 @@ def crossValidate(dataset, folds):
         classifier = trainClassifier(training_this_round)
         prediction = predictLabels(testing_this_round,classifier)
         
-###METRICS
+### METRICS
         trueLabels  = [x[1] for x in testing_this_round]
         metrics     = precision_recall_fscore_support(trueLabels, prediction, average='macro')
         accuracy    = nltk.classify.accuracy(classifier, testing_this_round)
@@ -142,6 +153,8 @@ def crossValidate(dataset, folds):
         cv_precision.append(precision)
         cv_recall.append(recall)
         cv_fscore.append(fscore)
+        
+        timeElapsed()
     print("***************************")
     print("***** AVERAGE METRICS *****")
     print("***************************")
@@ -149,7 +162,8 @@ def crossValidate(dataset, folds):
     print(" Precision: ",  "{:.4}".format(sum(cv_precision)/len(cv_precision)))
     print(" Recall:    ",  "{:.4}".format(sum(cv_recall)/len(cv_recall)))
     print(" Fscore:    ",  "{:.4}".format(sum(cv_fscore)/len(cv_fscore)))
-        # find mean accuracy over all rounds
+    
+    timeElapsed()
         
 #==============================================================================
 # PREDICTING LABELS GIVEN A CLASSIFIER
@@ -205,16 +219,14 @@ londonPath  = path + 'london_2017_tweets.csv'
 ## Use the below for testing 
 angryPath   = path + 'angry_tweets_500.csv'
 happyPath   = path + 'happy_tweets_500.csv'
-#londonPath  = path + 'london_2017_tweets_NEW.csv'    # 48.000 lines
-#londonPath  = path + 'london_2017_tweets_SMALL.csv'  # 10.000 lines
 londonPath  = path + 'london_2017_tweets_TINY.csv'  # 5.000 lines
 
 #==============================================================================
 # Initialize variables
 #==============================================================================
 tweetData           = []
-trainData           = []                  # [({TweetWords: count}, label)]
-londonTweetData     = []            # Tweets from the london tube strike
+trainData           = []                  
+londonTweetData     = []            
 tubeTweetCount      = []
 septTweetCount      = []
 compleateFeatureDic = {}
@@ -238,7 +250,7 @@ print ("Loading London data...")
 loadApplicationData(londonPath) 
 
 print("All data loaded successfully")
-
+timeElapsed()
 #==============================================================================
 #==============================================================================
 #==============================================================================
@@ -251,6 +263,8 @@ print("All data loaded successfully")
 #  CV & Classifier
 #==============================================================================
 cv_results = crossValidate(trainData, 10)
+timeElapsed()
+
 classifier = trainClassifier(trainData)
 
 #==============================================================================
@@ -269,14 +283,16 @@ for x in anger_peaks:
 print("************************")
 print("Tube tweets loaded: ", sum(tubeTweetCount))
 print("Tube tweets on 9. Sept: ", sum(septTweetCount))
+timeElapsed()
 
 #==============================================================================
 # PLOTTING
 #==============================================================================
 plt.bar(range(len(angerLevels)), angerLevels.values(), align='center')
 plt.xticks(range(len(angerLevels)), list(angerLevels.keys()))
-plt.ylim( (0.5, 1))  
+plt.ylim( (0.4, 0.8))  
 plt.show() 
+
 
 #==============================================================================
 # DONE

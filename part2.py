@@ -130,18 +130,11 @@ def conditionalProbDist(probDist, bigrams):
  
 def quickMLE(tweets):
     bigrams = getBigrams(getTweets(tweets)) 
-#    condProbDist = conditionalProbDist(MLEProbDist, bigrams)
-    condProbDist = conditionalProbDist(LaplaceProbDist, bigrams)
+    condProbDist = conditionalProbDist(MLEProbDist, bigrams)
+#    condProbDist = conditionalProbDist(LaplaceProbDist, bigrams)
     return condProbDist
 
 def getRatio():
-    MLElondon  = quickMLE(londonTweetData)
-    MLElondon9 = quickMLE(londonTweetData9)
-    MLElondon5 = quickMLE(londonTweetData5)  
-    print("FOR KATE:")
-    print(MLElondon['tube'].prob('strike'))
-    
-    
     # Get ratios jan9 and store in variable Ratio
     for bigrams in uniqueBigrams9:
         prob        = MLElondon9[bigrams[0]].prob(bigrams[1])
@@ -170,7 +163,7 @@ ratio9 = {}
 
 path                = 'Data/'
 londonPath          = path + 'london_2017_tweets_TINY.csv'  # 5.000 lines
-londonPath          = path + 'london_2017_tweets.csv'       # full dataset
+#londonPath          = path + 'london_2017_tweets.csv'       # full dataset
 
 print("Loading data")
 loadApplicationData(londonPath)  
@@ -187,6 +180,10 @@ uniqueBigrams5      = getBigramsFromDic(uniqueBigramsData5)
 uniqueBigrams9      = getBigramsFromDic(uniqueBigramsData9)
 timeElapsed()
 
+MLElondon  = quickMLE(londonTweetData)
+MLElondon9 = quickMLE(londonTweetData9)
+MLElondon5 = quickMLE(londonTweetData5)  
+
 #=============================================================================#
 # Main Function
 #=============================================================================#
@@ -202,6 +199,15 @@ mainScript()
 
 sortedRatio5 = sortDic(ratio5)
 sortedRatio9 = sortDic(ratio9)
+   
+prob  = MLElondon['tube'].prob('strike')
+prob5 = MLElondon5['tube'].prob('strike')
+prob9 = MLElondon9['tube'].prob('strike')
+
+print("Probability of 'strike' following 'tube' in a bigram")
+print("Entire dataset:", prob)
+print("5th of january:", prob5)
+print("9th of january:", prob9)
 
 
 #=============================================================================#
